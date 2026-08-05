@@ -1,0 +1,80 @@
+[project]
+name = "programsmith"
+version = "0.1.0"
+description = "Generate, verify, and difficulty-calibrate reproducible ProgramBench tasks from real-world CLI repositories."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+keywords = ["ai", "benchmarking", "evals", "programbench", "software-engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
+# The pipeline core (CLI, orchestrator, local sweep engine) is stdlib + pydantic + rich;
+# fastapi/uvicorn power the bundled dashboard (`programsmith serve` must work from a bare
+# install — the built frontend ships inside the wheel). Docker itself is a SYSTEM
+# dependency (install Docker Desktop / engine).
+dependencies = [
+    "pydantic>=2.7",
+    "rich>=13",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.urls]
+Homepage = "https://github.com/abundant-ai/ProgramSmith"
+Repository = "https://github.com/abundant-ai/ProgramSmith"
+Issues = "https://github.com/abundant-ai/ProgramSmith/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+programsmith = "programsmith.cli:main"
+psmith = "programsmith.cli:main"  # short alias — same CLI, fewer keystrokes
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/programsmith"]
+# Non-Python assets that MUST ship in the wheel:
+#   - the vendored STATIC_CI check suite (checks/ci/) — the gate replays it at run time
+#   - the built dashboard (ui/frontend/dist/) — `programsmith serve` works from a bare pip install
+artifacts = [
+    "src/programsmith/checks/ci/*",
+    "src/programsmith/ui/frontend/dist/**",
+]
+# The dashboard's TS sources/tooling stay out of the wheel — only the built dist ships.
+exclude = [
+    "src/programsmith/ui/frontend/src",
+    "src/programsmith/ui/frontend/public",
+    "src/programsmith/ui/frontend/node_modules",
+    "src/programsmith/ui/frontend/index.html",
+    "src/programsmith/ui/frontend/package.json",
+    "src/programsmith/ui/frontend/package-lock.json",
+    "src/programsmith/ui/frontend/tsconfig.json",
+    "src/programsmith/ui/frontend/tsconfig.app.json",
+    "src/programsmith/ui/frontend/tsconfig.node.json",
+    "src/programsmith/ui/frontend/vite.config.ts",
+    "src/programsmith/ui/frontend/.gitignore",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.check-wheel-contents]
+# These are runtime-executed Static-CI scripts, not importable Python modules. Their stable
+# hyphenated filenames are part of the check-suite interface.
+ignore = ["W004"]

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/state.schema.json",
+  "title": "STATE — deterministic FSM tracker (stub, provenance; authoritative model = src/programsmith/state.py)",
+  "description": "Machine source of truth. Orchestrator routes ONLY on gate verdicts here. Amended by ADR-0038..0040 (ProgramBench pivot: EASY_SHELF terminal, ease/smoke/frontier tune counters, 'easy' status).",
+  "type": "object",
+  "required": ["schema_version", "run_id", "task_identity", "current_stage", "status", "stages"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string"},
+    "run_id": {"type": "string"},
+    "task_identity": {"type": "string", "description": "ADR-0038: sha256(repo@sha | \"programbench\" | tool_name | flag_surface-hash). Legacy runs: hash(source@SHA, target_lang, scope_unit)."},
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "_comment": "legacy slugs end in -rewrite; ProgramBench slugs are tool-derived (ADR-0038)"},
+    "current_stage": {"$ref": "#/$defs/stageName"},
+    "status": {"enum": ["in_progress", "blocked", "done", "dropped", "easy", "error"], "_comment": "'easy' = terminal EASY_SHELF (ADR-0040): good-but-easy task, exported to <outbox>/easy/, reopenable"},
+    "paused": {"type": "boolean", "description": "operational pause/stop; halts at next inter-stage checkpoint"},
+    "stages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "verdict"],
+        "properties": {
+          "type": {"enum": ["gate", "cell", "sweep", "decision", "output", "human"]},
+          "verdict": {"type": ["string", "null"]},
+          "ts": {"type": ["string", "null"]},
+          "pass_at_1": {"type": ["number", "null"]},
+          "human_review": {"type": ["string", "null"]},
+          "manifest_ref": {"type": ["string", "null"], "description": "pointer to the cell output blob validated for this stage"}
+        }
+      }
+    },
+    "loop_counters": {
+      "type": "object",
+      "_comment": "ADR-0040 bidirectional tuning. Phase budgets are the enforced bounds (fsm.py: SMOKE_TUNE_MAX=2, FRONTIER_TUNE_MAX=1, REVISE_MAX=2); harden/ease are lifetime tallies (generation = harden+revise+ease). Old persisted states without the new keys hydrate as 0.",
+      "properties": {
+        "harden": {"type": "integer", "minimum": 0, "description": "lifetime harden rounds (≤ smoke+frontier budget = 3; the old 'maximum 2' predates ADR-0027/0040)"},
+        "revise": {"type": "integer", "minimum": 0, "description": "broken verifier/env fixes; bound REVISE_MAX=2"},
+        "ease": {"type": "integer", "minimum": 0, "description": "lifetime ease rounds (ADR-0040: easing is a first-class backward move)"},
+        "smoke_tunes": {"type": "integer", "minimum": 0, "maximum": 2, "description": "harden+ease rounds consumed at the smoke phase (CALIBRATE/QA_PROBE); SMOKE_TUNE_MAX=2"},
+        "frontier_tunes": {"type": "integer", "minimum": 0, "maximum": 1, "description": "harden+ease rounds consumed at the frontier phase (FULL_SWEEP); FRONTIER_TUNE_MAX=1"}
+      }
+    },
+    "verdict_vocab": {"type": "object"},
+    "backward_edges": {"type": "object"}
+  },
+  "$defs": {
+    "stageName": {
+      "_comment": "Authoritative model lives in src/programsmith/fsm.py (Stage). QA_ON_GPT and PR are LEGACY (ADR-0039): kept ONLY so pre-pivot state files load — both drain forward (no GPT QA pass, no PR opened). EASY_SHELF is a terminal (ADR-0040).",
+      "enum": ["INGEST_LOCK", "TASK_MATRIX", "ORACLE_GOLDEN", "CREATE", "SANITY", "STATIC_CI",
+               "DIFFICULTY_SWEEP", "CALIBRATE", "QA_PROBE", "FULL_SWEEP", "QA_ON_GPT", "QA_GATE",
+               "SYNTHESIZE", "PR", "DONE", "DROPPED", "BLOCKED", "EASY_SHELF"]
+    }
+  }
+}

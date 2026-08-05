@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/oracle_golden.schema.json",
+  "title": "ORACLE + GOLDEN cell output (stub)",
+  "description": "Reference port (verifier-sanity truth) + golden I/O (grading truth) + proposed epsilon. The epsilon is deterministically validated by a gate, not trusted as-emitted.",
+  "type": "object",
+  "required": ["approach", "golden_public_ref", "golden_heldout_ref", "epsilon", "epsilon_justification"],
+  "properties": {
+    "approach": {"enum": ["a1-reference-port", "promoted-trajectory"]},
+    "reference_port_ref": {"type": ["string", "null"], "description": "path to the frozen, held-out target-lang port (a1). null if promoted-trajectory fallback pending."},
+    "reference_port_clean_room": {"type": "boolean", "description": "true if authored independently (required when source is copyleft, ADR-0010)"},
+    "golden_public_ref": {"type": "string", "description": "public goldens captured by running the ORIGINAL on public inputs"},
+    "golden_heldout_ref": {"type": "string", "description": "held-out goldens; never exposed to the task env"},
+    "capture_method": {"type": "string", "description": "the wrapped capture toolchain, e.g. minpack _gen/gen_goldens.c"},
+    "reproducible": {"type": "boolean", "description": "goldens regenerate bit-identically (Dockerfile.gate)"},
+    "epsilon": {
+      "type": "object",
+      "description": "per-field tolerance map; {} means exact (epsilon=0)",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {"rel": {"type": "number"}, "abs": {"type": "number"}, "exact": {"type": "boolean"}}
+      }
+    },
+    "epsilon_justification": {"type": "string", "description": "e.g. measured from original run-to-run variance; cites fp-contract pin"},
+    "exercises_port": {"type": "boolean", "description": "held-out inputs give coverage that actually exercises the port"}
+  }
+}

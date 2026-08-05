@@ -1,0 +1,58 @@
+# Repo CI for ProgramSmith's OWN source — distinct from the pipeline's "STATIC CI" stage.
+#   - Pipeline STATIC CI = a runtime GATE that replays the vendored check suite (checks/ci/) on the
+#     TASKS the factory emits (validates the OUTPUT).
+#   - This = validates the FACTORY ITSELF on every push: the pytest suite + the frontend typecheck.
+# They don't overlap.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/programsmith/ui/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: "" # zizmor: ignore[cache-poisoning] builds never restore mutable dependency caches
+      - run: npm ci --no-audit
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Verify committed dashboard bundle is current
+        run: git diff --exit-code -- dist/

@@ -1,0 +1,11 @@
+# ProgramSmith test farm — 10 novel deterministic-CLI repos (guard-clean, not existing tasks)
+errata-ai/vale
+sharkdp/numbat
+WebAssembly/wabt
+bytecodealliance/wasm-tools
+kellyjonbrazil/jc
+landley/toybox
+charmbracelet/glow
+itchyny/gojo
+d5/tengo
+a-h/templ

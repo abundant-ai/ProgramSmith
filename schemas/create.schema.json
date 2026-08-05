@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/create.schema.json",
+  "title": "CREATE / INITIAL SYNTHESIS cell output (stub)",
+  "description": "First full build from templates: env + verifier + instruction.md + declarations. Wraps SWE-gen CC_PROMPT (env+verifier) + STYLE.md (instruction). Emits the produced task tree + the declarations for downstream gates.",
+  "type": "object",
+  "required": ["task_dir", "files", "declarations", "template_pack_version", "verifier_mechanism"],
+  "properties": {
+    "task_dir": {"type": "string"},
+    "files": {
+      "type": "object",
+      "description": "produced task files (paths)",
+      "required": ["instruction_md", "task_toml", "dockerfile", "test_sh", "solve_sh"],
+      "properties": {
+        "instruction_md": {"type": "string"},
+        "task_toml": {"type": "string"},
+        "dockerfile": {"type": "string"},
+        "test_sh": {"type": "string"},
+        "solve_sh": {"type": "string"},
+        "timer_sh": {"type": "string"},
+        "reviewer_manifest_json": {"type": "string"},
+        "starter_tree": {"type": "string"}
+      }
+    },
+    "declarations": {
+      "type": "object",
+      "required": ["allow_internet", "cpus", "memory_mb", "storage_mb", "agent_timeout_sec", "verifier_timeout_sec", "build_timeout_sec"],
+      "properties": {
+        "allow_internet": {"const": false},
+        "cpus": {"type": "integer", "minimum": 4},
+        "memory_mb": {"type": "integer", "minimum": 16384},
+        "storage_mb": {"type": "integer", "minimum": 16384},
+        "gpus": {"type": "integer", "minimum": 0},
+        "agent_timeout_sec": {"type": "number"},
+        "verifier_timeout_sec": {"type": "number"},
+        "build_timeout_sec": {"type": "number"}
+      }
+    },
+    "verifier_mechanism": {"enum": ["golden-io", "differential-oracle", "property-based", "perf-gate"]},
+    "anti_hack": {
+      "type": "object",
+      "description": "structural defenses applied (cross-ref reward-hack-catalog ids)",
+      "properties": {
+        "goldens_encrypted": {"type": "boolean"},
+        "two_phase_privdrop": {"type": "boolean"},
+        "deps_prevendored_offline": {"type": "boolean"},
+        "catalog_ids_addressed": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "template_pack_version": {"type": "string"}
+  }
+}

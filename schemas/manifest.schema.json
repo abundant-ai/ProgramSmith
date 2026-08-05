@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/manifest.schema.json",
+  "title": "manifest — rich per-run context carried across stages (stub, provenance; authoritative model = src/programsmith/manifest.py)",
+  "description": "Single source of truth for context. Cells append validated blobs; gates read pure functions over this. Amended by ADR-0038 (ProgramBench dimensions + oracle bundle) — legacy rewrite-port fields stay OPTIONAL so old manifests load.",
+  "type": "object",
+  "required": ["run_id", "task_identity", "source", "dimensions"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "task_identity": {"type": "string"},
+    "slug": {"type": "string"},
+    "source": {
+      "type": "object",
+      "required": ["repo", "pinned_sha", "license", "primary_language"],
+      "properties": {
+        "repo": {"type": "string"},
+        "pinned_sha": {"type": "string"},
+        "license": {"type": "string"},
+        "license_class": {"enum": ["permissive", "weak-copyleft", "strong-copyleft", "unknown"]},
+        "copyleft_blocked": {"type": "boolean", "description": "true => reference port must be clean-room (ADR-0010)"},
+        "primary_language": {"type": "string"},
+        "build_system": {"type": "string"},
+        "test_framework": {"type": "string"},
+        "size_loc": {"type": "integer"},
+        "has_cli_entrypoint": {"type": "boolean", "description": "deterministically detected executable main entrypoint"},
+        "cli_entrypoint": {"type": ["string", "null"], "description": "path/marker that established the executable entrypoint"}
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "_comment": "ADR-0038: the ProgramBench axes (from the selected TaskCandidate — pydantic in cells/task_matrix.py is the real contract). No required list: NEW manifests carry the ProgramBench fields, LEGACY manifests carry the rewrite-port fields; both must load.",
+      "properties": {
+        "tool_name": {"type": "string", "description": "binary name agents must reimplement (may differ from repo name)"},
+        "binary_name": {"type": "string", "description": "actual executable name (e.g. difft for difftastic)"},
+        "upstream_language": {"enum": ["go", "rust", "c", "cpp"]},
+        "flag_surface": {"type": "string", "description": "which subcommands/flags the grader will exercise (the scope; hashed into task_identity)"},
+        "case_families": {"type": "array", "items": {"type": "string"}, "minItems": 5, "maxItems": 12, "description": "feature families the case suite must cover (15-30 cases each)"},
+        "est_kloc": {"type": "integer", "description": "ProgramBench tier 5-80 kLOC"},
+        "stdin_friendly": {"type": "boolean", "description": "verifier pipes stdin; file-walking tools need files_dir cases"},
+        "needs_files_dir": {"type": "boolean", "description": "cwd-tree fixtures required (just/editorconfig style)"},
+        "deterministic_output": {"type": "boolean"},
+        "expected_difficulty": {"enum": ["moderate", "hard", "frontier"]},
+        "expert_hours": {"type": "integer", "description": "12-60 per ProgramBench tier"},
+
+        "target_language": {"enum": ["Rust", "Go", "TypeScript", "Zig"], "deprecated": true, "description": "LEGACY rewrite-port axis (pre-ADR-0038)"},
+        "scope_unit": {"enum": ["whole-library", "subsystem", "single-algorithm"], "deprecated": true, "description": "LEGACY rewrite-port axis"},
+        "verifier_mechanism": {"enum": ["golden-io", "differential-oracle", "property-based", "perf-gate"], "deprecated": true, "description": "LEGACY — ProgramBench grading is always byte-exact golden-I/O"},
+        "objective": {"enum": ["equivalence", "equivalence+performance", "equivalence+constraints"], "deprecated": true, "description": "LEGACY rewrite-port axis"}
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "_comment": "ADR-0038: the ORACLE_GOLDEN output bundle (oracle pair + docs + case suite + fixtures). Legacy reference-port/epsilon fields kept optional for old runs.",
+      "properties": {
+        "oracle_bin": {"type": "string"},
+        "prebuilt_bin": {"type": "string"},
+        "docs_dir": {"type": "string"},
+        "cases_json": {"type": "string"},
+        "fixtures_dir": {"type": "string"},
+        "oracle_sha256": {"type": "string"},
+        "prebuilt_sha256": {"type": "string"},
+        "text_distinct": {"type": "boolean", "description": "assert_text_distinct passed — oracle vs prebuilt binaries are byte-distinct"},
+        "n_cases": {"type": "integer", "description": "66 minimum; farm target 100-300"},
+
+        "approach": {"enum": ["a1-reference-port", "promoted-trajectory"], "deprecated": true, "description": "LEGACY (pre-ADR-0038)"},
+        "epsilon": {"type": ["object", "null"], "deprecated": true, "description": "LEGACY — ProgramBench grading is byte-exact; kept for old rewrite manifests"},
+        "reference_port_ref": {"type": ["string", "null"], "deprecated": true},
+        "golden_public_ref": {"type": ["string", "null"], "deprecated": true},
+        "golden_heldout_ref": {"type": ["string", "null"], "deprecated": true}
+      }
+    },
+    "network_policy": {
+      "type": "object",
+      "description": "ADR-0009 — three distinct policies (unchanged by the pivot)",
+      "properties": {
+        "image_build": {"const": "internet-allowed-then-frozen"},
+        "agent_session": {"const": "closed-deps-prevendored"},
+        "verifier": {"const": "closed-privdropped-encrypted"},
+        "oracle_capture": {"const": "authoring-time-offline-isolated"}
+      }
+    },
+    "task_artifacts": {
+      "type": "object",
+      "properties": {
+        "task_dir": {"type": "string"},
+        "instruction_md": {"type": "string"},
+        "task_toml": {"type": "string"},
+        "template_pack_version": {"type": "string"}
+      }
+    },
+    "run_config": {"type": "object", "description": "per-run sweep config (ADR-0032) — agents/bands per stage; wins over built-in defaults"},
+    "pipeline_mode": {"enum": ["full", "draft"], "default": "full"},
+    "source_screen": {
+      "type": ["object", "null"],
+      "description": "deterministic pre-model source eligibility result for the active profile",
+      "properties": {
+        "profile": {"enum": ["full", "draft"]},
+        "eligible": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "checks": {"type": "object"}
+      }
+    },
+    "sweeps": {
+      "type": "object",
+      "_comment": "keys 'difficulty' (= SMOKE, GLM) and 'full' (= FRONTIER, Opus) are persisted names — NEVER renamed (design non-goal)",
+      "properties": {
+        "difficulty": {"$ref": "#/$defs/sweepResult"},
+        "full": {"$ref": "#/$defs/sweepResult"}
+      }
+    },
+    "outbox": {
+      "type": "object",
+      "description": "ADR-0039 export record (replaces the PR record)",
+      "properties": {"path": {"type": "string"}, "kind": {"enum": ["tasks", "easy"]}, "ts": {"type": ["string", "null"]}}
+    },
+    "snapshot": {
+      "type": "object",
+      "description": "frozen CI checks + templates used by this run (reproducibility)",
+      "properties": {"ci_check_set": {"type": "string"}, "template_pack": {"type": "string"}}
+    }
+  },
+  "$defs": {
+    "sweepResult": {
+      "type": "object",
+      "properties": {
+        "experiment_id": {"type": "string"},
+        "environment": {"enum": ["local", "docker"]},
+        "agents": {"type": "array"},
+        "pass_at_1": {"type": ["number", "null"], "description": "aggregate over groups (ADR-0040; dual-family fields only when present)"},
+        "pass_at_1_by_family": {"type": "object", "deprecated": true, "description": "LEGACY dual-family band (pre-ADR-0040)"},
+        "groups": {"type": "object"},
+        "band_verdict": {"type": "string"},
+        "smoke_saturated": {"type": "boolean", "description": "CALIBRATE: GLM 3/3 but too-easy-to-harden — proceeded anyway; opus decides the shelf (ADR-0040)"},
+        "calibrate": {"type": "object", "description": "smoke decision record {verdict, reason, labels_summary}"},
+        "goodfail": {"type": "object", "description": "cached GoodFailReport + gate verdict (ADR-0041; frontier only, once per generation)"},
+        "hard_keep": {"type": "boolean", "description": "frontier zero/low-pass kept — trajectory-verified capability headroom (ADR-0041); QA_GATE accepts"}
+      }
+    }
+  }
+}

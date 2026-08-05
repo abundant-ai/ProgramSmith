@@ -1,0 +1,50 @@
+# Runtime state — runs, sweeps, job records, outputs. Never committed.
+.programsmith/
+.build/
+out/
+jobs/
+
+# Secrets
+.env
+
+# Python / tooling
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.pyright/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+/dist/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+._*
+*.swp
+*.swo
+*~
+
+# Private-sync tooling (never shipped)
+.porting/
+
+# Article/marketing working notes — reference private lineage; review before ever
+# removing this entry and committing them.
+/docs/

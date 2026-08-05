@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/task_matrix.schema.json",
+  "title": "TASK MATRIX cell output (stub) — proposed ProgramBench task candidates",
+  "description": "LLM-emitted, schema-validated before the gate proceeds. The REAL contract is the pydantic TaskCandidate in src/programsmith/cells/task_matrix.py; this file is a provenance stub (ADR-0038 replaced the rewrite-port axes). Advisory recommendation; auto mode picks first recommended -> first viable (ADR-0039), human mode picks manually. <=10 candidates (10 is a MAX, not a quota — ADR-0033). One repo usually yields ONE task; candidates differ by flag-surface scope only when the tool is huge.",
+  "type": "object",
+  "required": ["source_ref", "candidates"],
+  "properties": {
+    "source_ref": {"type": "string"},
+    "profile": {"enum": ["full", "draft"], "default": "full", "description": "rubric used to produce this matrix"},
+    "no_candidate_reason": {"type": ["string", "null"], "description": "required by the pydantic contract when candidates is empty"},
+    "source_evidence": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 0,
+      "maxItems": 8,
+      "description": "Path-labelled locked-checkout facts supporting the decision. Fresh decisions require 2-8; zero remains valid only for legacy persisted matrices."
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["tool_name", "binary_name", "upstream_language", "flag_surface", "case_families",
+                     "est_kloc", "stdin_friendly", "needs_files_dir", "deterministic_output",
+                     "expected_difficulty", "expert_hours", "recommendation", "rationale", "basis_ref"],
+        "properties": {
+          "tool_name": {"type": "string", "description": "binary name agents must reimplement (may differ from repo name)"},
+          "binary_name": {"type": "string", "description": "actual executable name (e.g. difft for difftastic)"},
+          "upstream_language": {"enum": ["go", "rust", "c", "cpp"]},
+          "flag_surface": {"type": "string", "description": "which subcommands/flags the grader will exercise (the candidate's scope axis)"},
+          "case_families": {"type": "array", "items": {"type": "string"}, "minItems": 5, "maxItems": 12, "description": "feature families the case suite must cover"},
+          "est_kloc": {"type": "integer", "description": "estimated upstream kLOC; full and draft profiles apply different suitability floors"},
+          "stdin_friendly": {"type": "boolean", "description": "verifier pipes stdin; file-walking tools need files_dir cases instead"},
+          "needs_files_dir": {"type": "boolean", "description": "cwd-tree fixtures required (just/editorconfig style)"},
+          "deterministic_output": {"type": "boolean", "description": "under pinned flags if needed; hard requirement for byte-exact grading"},
+          "expected_difficulty": {"enum": ["moderate", "hard", "frontier"], "description": "target = Opus 4.8 pass@1 in [1/3, 2/3] at the 18000s budget (ADR-0040) — NOT 'frontier must fail'"},
+          "expert_hours": {"type": "integer", "description": "estimated implementation hours for the active profile"},
+          "recommendation": {"enum": ["recommended", "viable", "marginal"]},
+          "rationale": {"type": "string"},
+          "basis_ref": {"type": "string", "description": "the existing precedent/exemplar this candidate would wrap; REQUIRED non-empty (invariant #3)"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+node_modules
+*.local
+.DS_Store
+node_modules/.tmp
+# dist is COMMITTED (and shipped in the wheel): `uv pip install programsmith && programsmith serve`
+# must work without node. Rebuild with `npm run build` before committing frontend changes.

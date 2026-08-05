@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "programsmith/synthesize.schema.json",
+  "title": "SYNTHESIZE / REVISE cell output (stub) — surgical patch, not regeneration",
+  "description": "Given diff context (what failed, what the probe found, what to harden), patches the existing task. Triggered by harden (CALIBRATE/QA-PROBE) or revise (QA GATE).",
+  "type": "object",
+  "required": ["task_dir", "trigger", "patch", "addresses"],
+  "properties": {
+    "task_dir": {"type": "string"},
+    "trigger": {
+      "type": "object",
+      "required": ["move", "from_stage", "reason"],
+      "properties": {
+        "move": {"enum": ["harden", "revise"]},
+        "from_stage": {"enum": ["CALIBRATE", "QA_PROBE", "QA_GATE"]},
+        "reason": {"type": "string", "description": "quotes the deterministic verdict that routed here"}
+      }
+    },
+    "patch": {
+      "type": "array",
+      "description": "surgical edits; each names the file and the nature of the change",
+      "items": {
+        "type": "object",
+        "required": ["file", "change"],
+        "properties": {
+          "file": {"type": "string"},
+          "change": {"type": "string"},
+          "regenerated": {"type": "boolean", "description": "must be false except for explicitly regenerable artifacts; SYNTHESIZE patches, never rebuilds from scratch"}
+        }
+      }
+    },
+    "addresses": {
+      "type": "array",
+      "description": "what this patch closes",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {"enum": ["reward-hack", "saturation", "underspecification", "verifier-bug", "fairness"]},
+          "catalog_id": {"type": ["string", "null"]},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "preserves_identity": {"type": "boolean", "const": true, "description": "patch must not change task_identity (source x lang x scope); else it's a new task"}
+  }
+}
