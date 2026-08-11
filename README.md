@@ -59,6 +59,9 @@ Trials can run on any provider:
 export OPENAI_API_KEY=<api-key>          # codex CLI + any openai/* model
 export GEMINI_API_KEY=<api-key>          # gemini CLI + any gemini/* model
 export ZAI_API_KEY=<api-key>             # GLM models via the mini-SWE-agent harness
+
+# Optional: one-click hosted trial + public experiment link from the dashboard
+export ODDISH_API_KEY=<full-scope-key>
 ```
 
 ## Usage
@@ -84,6 +87,7 @@ calibration but are sound are exported to `out/easy/`.
 
 Re-running the same command resumes the run from wherever it parked. Ctrl-C stops active model
 trials, keeps completed trials, and leaves unfinished work ready to resume.
+The local dashboard starts automatically and opens the task page as soon as the run is created.
 
 <details>
 <summary>Options</summary>
@@ -98,7 +102,9 @@ trials, keeps completed trials, and leaves unfinished work ready to resume.
 - `--config FILE.json` / `--preset NAME` — Full RunConfig (agents + per-model bands)
 - `--brief TEXT` — Steer the task generation scope (eg "port the FFT subsystem...")
 - `--review` — Pause at the two human gates (scope pick, final QA) instead of auto
+- `--draft` — Export after Static CI with no sweeps or calibration
 - `--yes` — Skip the cost preview confirmation
+- `--no-open-dashboard` — Do not open the task page in a browser
 - `--runs-dir PATH` — Choose the directory for runs (default: `.programsmith/runs`)
 - `--allow-copyleft` — Allow copyleft-licensed sources
 
@@ -133,9 +139,12 @@ programsmith serve
 programsmith stop
 ```
 
-Serves the local dashboard at `http://localhost:8765`: live pipeline DAG for each run, agent
-output, sweep results, file explorer, and optional review gates. Evaluation sweeps remain parked
-unless `serve --spend` is used.
+Serves the local dashboard at `http://localhost:8765`. Each exported task has a direct download
+button and can launch one low-priority Oddish trial, show its agent trajectory, and return a public
+experiment link. Build diagnostics, files, sweep results, and optional review gates remain
+available without dominating the task page. Add a full-scope Oddish API key in Settings to enable
+the hosted run; Oddish free-plan limits apply. Evaluation sweeps remain parked unless
+`serve --spend` is used.
 `programsmith serve` returns after the dashboard is healthy; `programsmith stop` is the explicit
 shutdown command.
 

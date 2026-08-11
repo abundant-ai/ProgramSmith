@@ -59,6 +59,7 @@ def test_screened_out_http_detail_surfaces_specific_matrix_reason(tmp_path, monk
         "source_ref": "o/n@abc", "candidates": [], "no_candidate_reason": reason,
     }))
     monkeypatch.setenv("PROGRAMSMITH_CONFIG_PATH", str(tmp_path / "config.json"))
+    monkeypatch.delenv("ODDISH_API_KEY", raising=False)
     from programsmith.config import LhConfig
     LhConfig(runs_dir=str(runs)).save()
     from programsmith.ui.app import app
@@ -159,6 +160,43 @@ def test_completed_draft_http_detail_uses_draft_waiting_panel(tmp_path, monkeypa
     assert detail["waiting"]["kind"] == "draft"
     assert detail["node_statuses"]["STATIC_CI"] == "done"
     assert detail["node_statuses"]["DIFFICULTY_SWEEP"] == "pending"
+
+
+def test_exported_task_has_download_and_oddish_actions(tmp_path, monkeypatch):
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    runs = tmp_path / "runs"
+    _make_run(runs, "draft", ["pass", "selected", "pass", "pass", "pass", "pass"])
+    task = tmp_path / "out" / "drafts" / "draft"
+    task.mkdir(parents=True)
+    (task / "task.toml").write_text("version = 1\n")
+    manifest = Manifest.load(runs / "draft")
+    manifest.pipeline_mode = "draft"
+    manifest.snapshot = {"outbox_path": str(task)}
+    manifest.save(runs / "draft")
+    (runs / "draft" / "drive.json").write_text(json.dumps({
+        "halted": "draft", "final_stage": "DIFFICULTY_SWEEP", "halt_reason": "done",
+    }))
+
+    monkeypatch.setenv("PROGRAMSMITH_CONFIG_PATH", str(tmp_path / "config.json"))
+    monkeypatch.delenv("ODDISH_API_KEY", raising=False)
+    from programsmith.config import LhConfig
+    LhConfig(runs_dir=str(runs)).save()
+    from programsmith.ui.app import app
+
+    client = TestClient(app)
+    detail = client.get("/api/runs/draft").json()
+    assert detail["artifact"] == {
+        "available": True,
+        "download_url": "/api/runs/draft/download",
+        "calibrated": False,
+    }
+    downloaded = client.get("/api/runs/draft/download")
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"] == "application/zip"
+    missing_key = client.post("/api/runs/draft/oddish", json={})
+    assert missing_key.status_code == 422 and "Connect Oddish" in missing_key.json()["detail"]
 
 
 def test_difficulty_pass_at_1_reads_real_value(tmp_path):

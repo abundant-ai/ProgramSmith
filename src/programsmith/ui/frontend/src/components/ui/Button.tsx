@@ -9,6 +9,8 @@ interface ButtonProps extends Omit<MuiButtonProps, "color" | "size" | "variant">
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  target?: string;
+  rel?: string;
 }
 
 const variantProps: Record<

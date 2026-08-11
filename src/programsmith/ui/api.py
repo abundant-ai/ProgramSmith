@@ -18,13 +18,17 @@ Endpoints (all under /api):
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from ..cells.task_matrix import TaskMatrixOutput, apply_selection, propose
 from ..config import LhConfig
@@ -149,6 +153,12 @@ class SettingsBody(BaseModel):
     openai_api_key: str | None = None
     gemini_api_key: str | None = None
     zai_api_key: str | None = None
+    # Hosted Oddish handoff. The key is treated exactly like the provider secrets above.
+    oddish_api_key: str | None = None
+    oddish_api_url: str | None = None
+    oddish_dashboard_url: str | None = None
+    oddish_agent: str | None = None
+    oddish_model: str | None = None
 
 
 @router.post("/settings")
@@ -160,7 +170,7 @@ def set_settings(body: SettingsBody) -> dict:
     for field, val in body.model_dump(exclude_none=True).items():
         if field in {
             "claude_code_oauth_token", "anthropic_api_key", "openai_api_key",
-            "gemini_api_key", "zai_api_key",
+            "gemini_api_key", "zai_api_key", "oddish_api_key",
         }:
             val = val.strip() or None
         setattr(cfg, field, val)
@@ -291,6 +301,20 @@ def _manifest_context(man: Manifest | None) -> dict:
     }
 
 
+def _exported_task_dir(run_dir: Path, manifest: Manifest | None) -> Path | None:
+    """Resolve only a finished/exported task artifact, never the mutable work-in-progress tree."""
+    if manifest is None:
+        return None
+    snapshot = manifest.snapshot or {}
+    raw = snapshot.get("outbox_path") if isinstance(snapshot, dict) else None
+    if not raw:
+        return None
+    path = Path(str(raw)).expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    return path if path.is_dir() else None
+
+
 @router.get("/runs/{key}")
 def get_run(key: str) -> dict:
     s = _store()
@@ -343,6 +367,11 @@ def get_run(key: str) -> dict:
         "drive": drive_info,
         "waiting": waiting,
         "jobs": get_jobs(run_dir),
+        "artifact": {
+            "available": _exported_task_dir(run_dir, manifest) is not None,
+            "download_url": f"/api/runs/{key}/download",
+            "calibrated": summary.status in {"done", "easy"},
+        },
     }
 
 
@@ -559,6 +588,122 @@ def outbox() -> dict:
         return out
 
     return {"tasks": _entries("tasks"), "easy": _entries("easy"), "drafts": _entries("drafts")}
+
+
+# ---- finished task actions ------------------------------------------------------------
+
+@router.get("/runs/{key}/download")
+def download_task(key: str):
+    """Download the immutable exported Harbor task as a zip archive."""
+    s = _store()
+    run_dir = Path(s.runs_dir) / key
+    try:
+        manifest = s.get_manifest(key)
+    except FileNotFoundError:
+        raise HTTPException(404, f"no run {key!r}")
+    task_dir = _exported_task_dir(run_dir, manifest)
+    if task_dir is None:
+        raise HTTPException(409, "The task is not exported yet")
+
+    temp_dir = Path(tempfile.mkdtemp(prefix="programsmith-download-"))
+    archive = Path(shutil.make_archive(str(temp_dir / task_dir.name), "zip", task_dir.parent, task_dir.name))
+    return FileResponse(
+        archive,
+        media_type="application/zip",
+        filename=f"{task_dir.name}.zip",
+        background=BackgroundTask(shutil.rmtree, temp_dir, ignore_errors=True),
+    )
+
+
+class OddishRunBody(BaseModel):
+    agent: str | None = None
+    model: str | None = None
+
+
+@router.get("/runs/{key}/oddish")
+def oddish_status(key: str) -> dict:
+    """Compact hosted-run status. Public experiment reads require no browser credential."""
+    s = _store()
+    run_dir = Path(s.runs_dir) / key
+    if not run_state_exists(run_dir):
+        raise HTTPException(404, f"no run {key!r}")
+    from ..oddish import refresh_state
+    return refresh_state(run_dir, api_url=LhConfig.load().oddish_api_url)
+
+
+@router.get("/runs/{key}/oddish/trajectory")
+def oddish_trajectory(key: str, trial_id: str | None = None):
+    s = _store()
+    run_dir = Path(s.runs_dir) / key
+    if not run_state_exists(run_dir):
+        raise HTTPException(404, f"no run {key!r}")
+    from ..oddish import OddishError, get_trajectory
+    try:
+        value = get_trajectory(
+            run_dir,
+            api_url=LhConfig.load().oddish_api_url,
+            trial_id=trial_id,
+        )
+    except OddishError as exc:
+        raise HTTPException(502, str(exc))
+    if value is None:
+        raise HTTPException(404, "No Oddish trajectory is available yet")
+    return value
+
+
+@router.post("/runs/{key}/oddish")
+def run_on_oddish(key: str, body: OddishRunBody) -> dict:
+    """Launch one hosted Oddish trial for an exported task and publish its experiment."""
+    s = _store()
+    run_dir = Path(s.runs_dir) / key
+    if not run_state_exists(run_dir):
+        raise HTTPException(404, f"no run {key!r}")
+    manifest = s.get_manifest(key)
+    task_dir = _exported_task_dir(run_dir, manifest)
+    if task_dir is None:
+        raise HTTPException(409, "Finish and export the task before running it on Oddish")
+
+    cfg = LhConfig.load()
+    if not cfg.oddish_api_key:
+        raise HTTPException(
+            422,
+            "Connect Oddish in Settings first. Create a full-scope key at "
+            f"{cfg.oddish_dashboard_url}/settings.",
+        )
+    from ..oddish import load_state, save_state, submit_task
+    existing = load_state(run_dir)
+    if existing.get("status") in {"submitting", "queued", "running", "complete"}:
+        return existing
+
+    agent = (body.agent or cfg.oddish_agent).strip()
+    model = (body.model or cfg.oddish_model).strip()
+    if not agent or not model:
+        raise HTTPException(422, "Oddish agent and model are required")
+    pending = save_state(
+        run_dir,
+        {
+            "status": "submitting",
+            "task_name": task_dir.name,
+            "agent": agent,
+            "model": model,
+            "trials": [],
+        },
+    )
+
+    def _submit() -> str:
+        result = submit_task(
+            run_dir,
+            task_dir,
+            api_key=cfg.oddish_api_key or "",
+            api_url=cfg.oddish_api_url,
+            dashboard_url=cfg.oddish_dashboard_url,
+            agent=agent,
+            model=model,
+        )
+        return result.get("public_url") or result.get("experiment_url") or "submitted"
+
+    run_in_background(run_dir, "oddish", _submit, stale_sec=1800)
+    return pending
 
 
 # ---- file / directory browser (task-detail viewer) ------------------------------------

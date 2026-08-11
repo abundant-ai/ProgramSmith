@@ -53,6 +53,16 @@ class LhConfig(BaseModel):
     openai_api_key: str | None = None
     gemini_api_key: str | None = None      # Google AI Studio key (GEMINI_API_KEY / GOOGLE_API_KEY)
     zai_api_key: str | None = None         # Z.ai key (GLM models)
+
+    # ---- hosted Oddish handoff -------------------------------------------------
+    # ProgramSmith can upload an exported task, launch one hosted trial, and publish the resulting
+    # experiment. The key belongs to the local operator's Oddish account and is stored with the same
+    # owner-only permissions as model credentials. It is never exposed unmasked by the dashboard.
+    oddish_api_key: str | None = None
+    oddish_api_url: str = "https://abundant-ai--api.modal.run"
+    oddish_dashboard_url: str = "https://www.oddish.app"
+    oddish_agent: str = "claude-code"
+    oddish_model: str = "anthropic/claude-sonnet-4-6"
     # Per-TRIAL cost cap handed to the mini-swe solver (`-l`; 0 = disabled). Deliberately 0 by
     # default: the product policy is cost preview + confirm before a sweep, not a silent cap that
     # kills long legitimate trials. Always passed explicitly (mini's own default would cap quietly).
@@ -123,6 +133,11 @@ class LhConfig(BaseModel):
         cfg.gemini_api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
                               or cfg.gemini_api_key)
         cfg.zai_api_key = os.getenv("ZAI_API_KEY") or cfg.zai_api_key
+        cfg.oddish_api_key = os.getenv("ODDISH_API_KEY") or cfg.oddish_api_key
+        cfg.oddish_api_url = os.getenv("ODDISH_API_URL") or cfg.oddish_api_url
+        cfg.oddish_dashboard_url = (
+            os.getenv("ODDISH_DASHBOARD_URL") or cfg.oddish_dashboard_url
+        )
         if v := os.getenv("PROGRAMSMITH_TRIAL_COST_LIMIT"):
             try:
                 cfg.trial_cost_limit = float(v)
@@ -153,6 +168,7 @@ class LhConfig(BaseModel):
         d["openai_api_key"] = mask(self.openai_api_key)
         d["gemini_api_key"] = mask(self.gemini_api_key)
         d["zai_api_key"] = mask(self.zai_api_key)
+        d["oddish_api_key"] = mask(self.oddish_api_key)
         return d
 
 
