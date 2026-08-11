@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from programsmith.cli import _ensure_dashboard, _remember_runs_dir, _save_dashboard_state, main
+from programsmith.cli import _ensure_dashboard, _open_dashboard, _remember_runs_dir, _save_dashboard_state, main
 from programsmith.config import LhConfig
 
 
@@ -121,6 +121,19 @@ def test_dashboard_skips_wrong_fleet_on_requested_port(monkeypatch, tmp_path):
     assert argv[argv.index("--port") + 1] == "8766"
     assert "--foreground" in argv
     assert kwargs["start_new_session"] is True
+
+
+def test_open_dashboard_is_best_effort_and_disabled_in_ci(monkeypatch):
+    calls = []
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.delenv("PROGRAMSMITH_NO_BROWSER", raising=False)
+    monkeypatch.setattr("webbrowser.open", lambda url, new=0: calls.append((url, new)) or True)
+    assert _open_dashboard("http://127.0.0.1:8765/run/demo") is True
+    assert calls == [("http://127.0.0.1:8765/run/demo", 2)]
+
+    monkeypatch.setenv("CI", "1")
+    assert _open_dashboard("http://127.0.0.1:8765/run/demo") is False
+    assert len(calls) == 1
 
 
 def test_serve_no_autodrive_opts_out(monkeypatch, tmp_path):

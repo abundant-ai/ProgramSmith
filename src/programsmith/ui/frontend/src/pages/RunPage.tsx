@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { usePolling } from "../lib/usePolling";
-import { Card, CardBody, CardHeader, CardTitle } from "../components/ui/Card";
+import { Card, CardBody } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Badge, StatusBadge } from "../components/ui/Badge";
 import { Tooltip } from "../components/ui/Tooltip";
@@ -25,6 +25,7 @@ import { RunContextPanel } from "../components/RunContextPanel";
 import { HistoryTimeline } from "../components/HistoryTimeline";
 import { FileExplorer } from "../components/FileExplorer";
 import { AgentOutput } from "../components/AgentOutput";
+import { OddishPanel } from "../components/OddishPanel";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { TaskMatrixReview } from "../components/TaskMatrixReview";
 import { QaGatePanel } from "../components/QaGatePanel";
@@ -207,10 +208,12 @@ export function RunPage() {
         </CardBody>
       </Card>
 
+      <OddishPanel runKey={key} artifact={data.artifact} />
+
       {/* terminal (dropped/blocked/easy): rich panel with the WHY + harden-review + re-open.
           A DONE run needs no panel — the export is conveyed by the green "Done" DAG node. */}
-      {(data.waiting?.kind === "terminal" || data.waiting?.kind === "draft") &&
-        summary.status !== "done" && (
+      {data.waiting?.kind === "terminal" &&
+        summary.status !== "done" && summary.status !== "draft" && (
         <TerminalPanel
           runKey={key}
           status={summary.status}
@@ -222,15 +225,17 @@ export function RunPage() {
         />
       )}
 
-      {/* DAG */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
+      <details className="group border border-line bg-surface-1" open={!data.artifact?.available}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-3">
             <Workflow className="size-4 text-accent" />
-            Pipeline
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
+            Build details
+          </span>
+          <span className="font-mono text-[11px] text-ink-4">
+            {summary.status === "draft" ? "Static CI passed" : `${summary.stage.replaceAll("_", " ")} · ${Math.round(summary.progress * 100)}%`}
+          </span>
+        </summary>
+        <div className="border-t border-line p-5">
           <PipelineDag
             statuses={node_statuses}
             selected={selectedStage}
@@ -248,8 +253,8 @@ export function RunPage() {
               }}
             />
           )}
-        </CardBody>
-      </Card>
+        </div>
+      </details>
 
       {/* human reviews (conditional) */}
       {summary.status === "in_progress" && summary.stage === "TASK_MATRIX" && (
@@ -264,15 +269,20 @@ export function RunPage() {
         <QaGatePanel runKey={key} context={context} onDecided={() => void refresh()} />
       )}
 
-      {/* context + history — items-start so each card wraps its own content (History's scroll
-          container fills its card instead of leaving a gap below a stretched card) */}
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <RunContextPanel context={context} />
-        <HistoryTimeline history={history} />
-      </div>
-
-      {/* live cell-agent terminal — under history (auto-tails while a claude -p worker runs) */}
-      <AgentOutput runKey={key} />
+      <details className="group border border-line bg-surface-1">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
+          Diagnostics
+          <span className="font-mono text-[11px] text-ink-4 group-open:hidden">Show</span>
+          <span className="hidden font-mono text-[11px] text-ink-4 group-open:inline">Hide</span>
+        </summary>
+        <div className="space-y-6 border-t border-line p-5">
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <RunContextPanel context={context} />
+            <HistoryTimeline history={history} />
+          </div>
+          <AgentOutput runKey={key} />
+        </div>
+      </details>
 
       <FileExplorer
         runKey={key}

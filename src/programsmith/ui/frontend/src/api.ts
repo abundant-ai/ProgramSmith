@@ -88,6 +88,11 @@ export interface Settings {
   openai_api_key?: string | null;
   gemini_api_key?: string | null;
   zai_api_key?: string | null;
+  oddish_api_key?: string | null;
+  oddish_api_url?: string | null;
+  oddish_dashboard_url?: string | null;
+  oddish_agent?: string | null;
+  oddish_model?: string | null;
 }
 
 /** Effective runtime the served auto-driver is using (read-only status). */
@@ -337,6 +342,42 @@ export interface RunDetail {
   waiting?: WaitingInfo | null;
   /** Background-job state for slow ops (clone/ingest, task-matrix cell). */
   jobs?: RunJobs;
+  artifact?: {
+    available: boolean;
+    download_url: string;
+    calibrated: boolean;
+  };
+}
+
+export interface OddishTrial {
+  id: string | null;
+  index?: number | null;
+  status: string;
+  agent?: string | null;
+  model?: string | null;
+  reward?: number | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  duration_seconds?: number | null;
+  tool_calls?: number | null;
+  cost_usd?: number | null;
+  error?: string | null;
+}
+
+export interface OddishRun {
+  status: "idle" | "submitting" | "queued" | "running" | "complete" | "failed" | string;
+  task_name?: string | null;
+  task_id?: string | null;
+  experiment_id?: string | null;
+  experiment_name?: string | null;
+  experiment_url?: string | null;
+  public_url?: string | null;
+  agent?: string | null;
+  model?: string | null;
+  trials: OddishTrial[];
+  error?: string | null;
+  refresh_error?: string | null;
+  updated_at?: string | null;
 }
 
 /** One TASK MATRIX candidate. The ProgramBench pivot (ADR-0038) replaced the rewrite-port axes
@@ -567,6 +608,20 @@ export const api = {
 
   agentOutput: (key: string) =>
     request<AgentOutput>(`/runs/${encodeURIComponent(key)}/agent-output`),
+
+  oddishStatus: (key: string) =>
+    request<OddishRun>(`/runs/${encodeURIComponent(key)}/oddish`),
+  runOnOddish: (key: string, body: { agent?: string; model?: string } = {}) =>
+    request<OddishRun>(`/runs/${encodeURIComponent(key)}/oddish`, {
+      method: "POST",
+      json: body,
+    }),
+  oddishTrajectory: (key: string, trialId?: string) =>
+    request<unknown>(
+      `/runs/${encodeURIComponent(key)}/oddish/trajectory${
+        trialId ? `?trial_id=${encodeURIComponent(trialId)}` : ""
+      }`,
+    ),
 };
 
 export interface AgentOutput {

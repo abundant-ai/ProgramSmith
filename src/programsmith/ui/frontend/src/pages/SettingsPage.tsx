@@ -25,7 +25,8 @@ type SecretField =
   | "anthropic_api_key"
   | "openai_api_key"
   | "gemini_api_key"
-  | "zai_api_key";
+  | "zai_api_key"
+  | "oddish_api_key";
 
 const MODEL_OPTIONS: { value: string; label: string }[] = [
   { value: "claude-sonnet-5", label: "Sonnet 5" },
@@ -59,6 +60,10 @@ export function SettingsPage() {
   const [authorName, setAuthorName] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
   const [authorOrg, setAuthorOrg] = useState("");
+  const [oddishApiUrl, setOddishApiUrl] = useState("");
+  const [oddishDashboardUrl, setOddishDashboardUrl] = useState("");
+  const [oddishAgent, setOddishAgent] = useState("");
+  const [oddishModel, setOddishModel] = useState("");
 
   function hydrate(s: Settings) {
     setModel(s.default_cell_model ?? "");
@@ -73,12 +78,17 @@ export function SettingsPage() {
     setAuthorName(s.author_name ?? "");
     setAuthorEmail(s.author_email ?? "");
     setAuthorOrg(s.author_organization ?? "");
+    setOddishApiUrl(s.oddish_api_url ?? "");
+    setOddishDashboardUrl(s.oddish_dashboard_url ?? "");
+    setOddishAgent(s.oddish_agent ?? "");
+    setOddishModel(s.oddish_model ?? "");
     setSecretMasks({
       claude_code_oauth_token: s.claude_code_oauth_token,
       anthropic_api_key: s.anthropic_api_key,
       openai_api_key: s.openai_api_key,
       gemini_api_key: s.gemini_api_key,
       zai_api_key: s.zai_api_key,
+      oddish_api_key: s.oddish_api_key,
     });
   }
 
@@ -129,6 +139,10 @@ export function SettingsPage() {
         author_name: authorName || undefined,
         author_email: authorEmail || undefined,
         author_organization: authorOrg || undefined,
+        oddish_api_url: oddishApiUrl || undefined,
+        oddish_dashboard_url: oddishDashboardUrl || undefined,
+        oddish_agent: oddishAgent || undefined,
+        oddish_model: oddishModel || undefined,
       };
       const updated = await api.saveSettings(body);
       hydrate(updated);
@@ -188,9 +202,28 @@ export function SettingsPage() {
           <div className="divide-y divide-line rounded-xl border border-line">
             <CredentialRow label="Claude OAuth token" hint={<>run <code>claude setup-token</code></>} field="claude_code_oauth_token" required mask={secretMasks.claude_code_oauth_token} value={secretValues.claude_code_oauth_token ?? ""} busy={savingSecret === "claude_code_oauth_token"} onChange={(value) => setSecretValues((s) => ({ ...s, claude_code_oauth_token: value }))} onSave={(clear) => void saveSecret("claude_code_oauth_token", clear)} />
             <CredentialRow label="Anthropic API key" field="anthropic_api_key" required mask={secretMasks.anthropic_api_key} value={secretValues.anthropic_api_key ?? ""} busy={savingSecret === "anthropic_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, anthropic_api_key: value }))} onSave={(clear) => void saveSecret("anthropic_api_key", clear)} />
-            <CredentialRow label="OpenAI API key" field="openai_api_key" mask={secretMasks.openai_api_key} value={secretValues.openai_api_key ?? ""} busy={savingSecret === "openai_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, openai_api_key: value }))} onSave={(clear) => void saveSecret("openai_api_key", clear)} />
-            <CredentialRow label="Gemini API key" field="gemini_api_key" mask={secretMasks.gemini_api_key} value={secretValues.gemini_api_key ?? ""} busy={savingSecret === "gemini_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, gemini_api_key: value }))} onSave={(clear) => void saveSecret("gemini_api_key", clear)} />
-            <CredentialRow label="Z.ai API key" field="zai_api_key" mask={secretMasks.zai_api_key} value={secretValues.zai_api_key ?? ""} busy={savingSecret === "zai_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, zai_api_key: value }))} onSave={(clear) => void saveSecret("zai_api_key", clear)} />
+            <CredentialRow
+              label="Oddish API key"
+              hint={<><a className="underline underline-offset-2" href="https://www.oddish.app/settings" target="_blank" rel="noreferrer">Create a full-scope key</a> for one-click hosted runs.</>}
+              field="oddish_api_key"
+              mask={secretMasks.oddish_api_key}
+              value={secretValues.oddish_api_key ?? ""}
+              busy={savingSecret === "oddish_api_key"}
+              onChange={(value) => setSecretValues((s) => ({ ...s, oddish_api_key: value }))}
+              onSave={(clear) => void saveSecret("oddish_api_key", clear)}
+            />
+            <details className="group border-t border-line">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-medium text-ink-2 [&::-webkit-details-marker]:hidden">
+                Other model providers
+                <span className="font-mono text-[11px] text-ink-4 group-open:hidden">Optional</span>
+                <span className="hidden font-mono text-[11px] text-ink-4 group-open:inline">Hide</span>
+              </summary>
+              <div className="divide-y divide-line border-t border-line">
+                <CredentialRow label="OpenAI API key" field="openai_api_key" mask={secretMasks.openai_api_key} value={secretValues.openai_api_key ?? ""} busy={savingSecret === "openai_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, openai_api_key: value }))} onSave={(clear) => void saveSecret("openai_api_key", clear)} />
+                <CredentialRow label="Gemini API key" field="gemini_api_key" mask={secretMasks.gemini_api_key} value={secretValues.gemini_api_key ?? ""} busy={savingSecret === "gemini_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, gemini_api_key: value }))} onSave={(clear) => void saveSecret("gemini_api_key", clear)} />
+                <CredentialRow label="Z.ai API key" field="zai_api_key" mask={secretMasks.zai_api_key} value={secretValues.zai_api_key ?? ""} busy={savingSecret === "zai_api_key"} onChange={(value) => setSecretValues((s) => ({ ...s, zai_api_key: value }))} onSave={(clear) => void saveSecret("zai_api_key", clear)} />
+              </div>
+            </details>
           </div>
         </CardBody>
       </Card>
@@ -256,6 +289,42 @@ export function SettingsPage() {
               <Field label="Static checks override" htmlFor="ci_repo">
                 <Input id="ci_repo" placeholder="Bundled checks (default)" value={ciRepo} onChange={(e) => setCiRepo(e.target.value)} />
               </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <Wrench className="size-4 text-ink-3" />
+                Oddish
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-5">
+              <p className="text-[13px] leading-relaxed text-ink-2">
+                The run button uploads an exported task, launches one hosted trial, and creates a
+                public experiment link. Oddish free-plan limits apply.
+              </p>
+              <details className="group border border-line">
+                <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-medium text-ink-2 [&::-webkit-details-marker]:hidden">
+                  Advanced Oddish settings
+                  <span className="font-mono text-[11px] text-ink-4 group-open:hidden">Defaults</span>
+                  <span className="hidden font-mono text-[11px] text-ink-4 group-open:inline">Hide</span>
+                </summary>
+                <div className="grid gap-5 border-t border-line p-4 sm:grid-cols-2">
+                  <Field label="Agent" htmlFor="oddish_agent">
+                    <Input id="oddish_agent" value={oddishAgent} onChange={(event) => setOddishAgent(event.target.value)} />
+                  </Field>
+                  <Field label="Model" htmlFor="oddish_model">
+                    <Input id="oddish_model" value={oddishModel} onChange={(event) => setOddishModel(event.target.value)} />
+                  </Field>
+                  <Field label="API URL" htmlFor="oddish_api_url">
+                    <Input id="oddish_api_url" value={oddishApiUrl} onChange={(event) => setOddishApiUrl(event.target.value)} />
+                  </Field>
+                  <Field label="Dashboard URL" htmlFor="oddish_dashboard_url">
+                    <Input id="oddish_dashboard_url" value={oddishDashboardUrl} onChange={(event) => setOddishDashboardUrl(event.target.value)} />
+                  </Field>
+                </div>
+              </details>
             </CardBody>
           </Card>
 

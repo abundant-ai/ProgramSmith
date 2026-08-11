@@ -702,6 +702,17 @@ def _ensure_dashboard(runs_dir: Path, host: str, port: int, *, run_key: str | No
     return f"{base}/run/{run_key}" if run_key else base
 
 
+def _open_dashboard(url: str) -> bool:
+    """Open a local dashboard without ever making task creation depend on desktop integration."""
+    if os.getenv("CI") or os.getenv("PROGRAMSMITH_NO_BROWSER"):
+        return False
+    try:
+        import webbrowser
+        return bool(webbrowser.open(url, new=2))
+    except Exception:  # noqa: BLE001 — missing browser/headless sessions are expected
+        return False
+
+
 def _cmd_purge_synthetic(args: argparse.Namespace) -> int:
     """Strip ALL synthetic data from a run and roll the FSM back to its last REAL stage. Removes any
     manifest oracle/sweep entry tagged `simulated`, deletes a synthetic-built task skeleton when the
@@ -1118,6 +1129,9 @@ def _cmd_create_hero(args: argparse.Namespace) -> int:
         ux.console.print("   check the owner/name spelling (private repos need a reachable URL); "
                          "pin a commit with --sha to skip HEAD resolution")
         return 1
+    dashboard_run_url = f"{dashboard_url}/run/{key}" if dashboard_url else None
+    if dashboard_run_url and getattr(args, "open_dashboard", True):
+        _open_dashboard(dashboard_run_url)
     if verdict == "exists":
         ux.console.print(f"[dim]▶ {key}: run exists — resuming from where it parked[/dim]")
         # A resumed run that already DROPPED can't be driven — re-surface WHY (the recorded gate
@@ -1134,7 +1148,6 @@ def _cmd_create_hero(args: argparse.Namespace) -> int:
         if out.advice:
             ux.console.print(f"   {out.advice}")
         return 1
-    dashboard_run_url = f"{dashboard_url}/run/{key}" if dashboard_url else None
     outcome = ux.drive_run_foreground(run_dir, ctx=_drive_ctx(args), interval=args.interval,
                                       notes_path=runs_dir.parent / "WORKFLOW_NOTES.md")
     ux.summary_panel({key: outcome})
@@ -1614,6 +1627,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="port for the auto-started dashboard (default: 8765)")
         dp.add_argument("--dashboard-host", default="127.0.0.1",
                         help="host for the auto-started dashboard (default: 127.0.0.1)")
+        dp.add_argument("--open-dashboard", dest="open_dashboard", action="store_true", default=True,
+                        help="open the task dashboard in your browser once the run is created (default: on)")
+        dp.add_argument("--no-open-dashboard", dest="open_dashboard", action="store_false",
+                        help="start the dashboard without opening a browser tab")
 
     # ---- hero commands (the README surface) ----
     pcre = sub.add_parser(

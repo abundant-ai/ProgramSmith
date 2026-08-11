@@ -98,7 +98,8 @@ const CLI_GROUPS: Array<{ title: string; rows: Array<[string, string]> }> = [
   {
     title: "Create & farm",
     rows: [
-      ["programsmith create --repo owner/name [--sha] [--slug]", "One repo → one calibrated task (resolves HEAD if no --sha)."],
+      ["programsmith create --repo owner/name [--sha] [--slug]", "One repo → one calibrated task; starts and opens its local dashboard."],
+      ["programsmith create --repo owner/name --draft", "Export after Static CI with no model sweeps or calibration."],
       ["programsmith farm --repos-file repos.txt", "Start and drive many runs from a file (one spec per line)."],
     ],
   },
