@@ -1,6 +1,6 @@
 [project]
 name = "programsmith"
-version = "0.1.0"
+version = "0.2.0"
 description = "Generate, verify, and difficulty-calibrate reproducible ProgramBench tasks from real-world CLI repositories."
 readme = "README.md"
 license = "Apache-2.0"
